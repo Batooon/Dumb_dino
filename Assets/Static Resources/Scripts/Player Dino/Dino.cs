@@ -10,21 +10,19 @@ namespace Player
         [SerializeField] private KeyCode _jumpKey;
         [Space(20)]
         [Header("Ground Check Parameters")]
-        /*
-         * Приймати інпут коли промінь граунд чеку вже торкнувся землі
-         * коли гравець приземлився на землю одразу ж стрибнути в такому випадку
-         * починати знову перевіряти торкання землі, коли промінь перестане торкатися землі
-         */
         [SerializeField] private Transform _groundCheckOrigin;
-        [SerializeField, Range(0.01f, 1f)] private float _groundCheckDistance;
+        [SerializeField, Range(.01f, 1f)] private float _groundCheckDistance;
+        [SerializeField, Range(.05f, .5f)] private float _groundCheckDelayAfterJump;
+        [SerializeField, Range(.05f, .2f)] private float _groundTriggerRadius;
         [SerializeField] private LayerMask _layerMask;
-        [SerializeField, Range(0.05f, .5f)] private float _checkDelay;
 
         private Rigidbody2D _rigidbody;
         private readonly Vector2 _jumpDirection = new (0, 1);
         private Vector2 _jump;
 
         private bool _jumped;
+        private bool _pressedJumpInAir;
+        
         private bool _grounded;
         private bool _groundCheckDelayEnded;
 
@@ -42,6 +40,16 @@ namespace Player
                 {
                     _jumped = false;
                 }
+            }
+
+            if (CanReceiveJumpInput())
+            {
+                _pressedJumpInAir = Input.GetKeyDown(_jumpKey);
+            }
+
+            if (_pressedJumpInAir)
+            {
+                JumpAfterGrounding();
             }
 
             if (CanJump())
@@ -79,7 +87,7 @@ namespace Player
         private IEnumerator GroundCheckDelay()
         {
             _groundCheckDelayEnded = false;
-            yield return new WaitForSeconds(_checkDelay);
+            yield return new WaitForSeconds(_groundCheckDelayAfterJump);
             _groundCheckDelayEnded = true;
         }
 
@@ -88,12 +96,33 @@ namespace Player
             return _groundCheckDelayEnded && _grounded == false;
         }
 
+        private bool CanReceiveJumpInput()
+        {
+            return _pressedJumpInAir == false && CanGroundCheck();
+        }
+
+        private void JumpAfterGrounding()
+        {
+            var groundResults = new Collider2D[1];
+            var results = Physics2D.OverlapCircleNonAlloc(_groundCheckOrigin.position,
+                _groundTriggerRadius,
+                groundResults,
+                _layerMask);
+                
+            if (results > 0)
+            {
+                Jump();
+                _pressedJumpInAir = false;
+            }
+        }
+
 #if UNITY_EDITOR
         private void OnDrawGizmosSelected()
         {
             var groundCheckPosition = _groundCheckOrigin != null ? _groundCheckOrigin.position : default;
             Gizmos.color = Color.blue;
             Gizmos.DrawLine(groundCheckPosition, groundCheckPosition + Vector3.down * _groundCheckDistance);
+            Gizmos.DrawWireSphere(groundCheckPosition, _groundTriggerRadius);
             Gizmos.color = Color.white;
         }
 #endif
